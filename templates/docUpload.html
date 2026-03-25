@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Document Analyzer</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+            margin-top: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        button {
+            background: #0078d7;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        input[type="file"], input[type="text"] {
+            padding: 10px;
+            width: 70%;
+            margin-right: 10px;
+        }
+
+        .search-box {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        pre {
+            background: #eee;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .result-item {
+            border-bottom: 1px solid #ddd;
+            padding: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h2> AI Document Analyzer</h2>
+
+    <!-- 🔍 SEARCH -->
+    <!-- <div class="card">
+        <h3>🔍 Search Documents</h3>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search something...">
+            <button onclick="searchDocs()">Search</button>
+        </div>
+        <div id="searchResults">
+  
+        </div>
+    </div> -->
+    <div class="card">
+    <h3>🔍 Search Documents</h3>
+
+    <input type="text" id="searchInput" placeholder="Search...">
+
+    <button onclick="searchDocs()">Normal Search</button>
+    <button onclick="semanticSearch()">⚡ Semantic Search</button>
+
+    <div id="searchResults"></div>
+    </div>
+
+
+    <!-- 📤 UPLOAD -->
+    <div class="card">
+        <h3>📤 Upload Document</h3>
+        <form id="uploadForm">
+            <input type="file" id="fileInput" name="file" required>
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+
+    <!-- 📄 OUTPUT -->
+    <div class="card">
+        <h3>📄 Extracted Text</h3>
+        <p id="text"></p>
+    </div>
+
+    <div class="card">
+        <h3>🧠 Summary</h3>
+        <p id="summary"></p>
+    </div>
+
+    <div class="card">
+        <h3>📌 Abstract</h3>
+        <p id="abstract"></p>
+    </div>
+
+    <div class="card">
+        <h3>🏷️ Entities</h3>
+        <pre id="entities"></pre>
+    </div>
+
+</div>
+
+<script>
+
+// ================= UPLOAD =================
+document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const file = document.getElementById("fileInput").files[0];
+    if (!file) {
+        alert("Select a file first");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("http://127.0.0.1:5001/uploads", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await response.json();
+
+    document.getElementById("text").innerText = data.Doc;
+    document.getElementById("summary").innerText = data.Summary;
+    document.getElementById("abstract").innerText = data.Abstract;
+    document.getElementById("entities").innerText =
+        JSON.stringify(data.NER, null, 2);
+});
+
+
+// ================= SEARCH =================
+async function searchDocs() {
+    const query = document.getElementById("searchInput").value;
+
+    if (!query) {
+        alert("Enter search query");
+        return;
+    }
+    console.log("hi there");
+    const response = await fetch(`http://127.0.0.1:5001/search?q=${query}`);
+    console.log("hi there");
+    const data = await response.json();
+
+    const container = document.getElementById("searchResults");
+    container.innerHTML = "";
+
+data.results.forEach(doc => {
+    container.innerHTML += `
+        <div class="result-item">
+            <b>Summary:</b> ${doc.summary} <br>
+            <button onclick="viewDoc('${doc.filename}')">
+                🔍 View Details
+            </button>
+        </div>
+    `;
+});
+
+}
+function viewDoc(filename) {
+    console.log("Opening:", filename);
+
+    fetch(`http://127.0.0.1:5001/doc?name=${encodeURIComponent(filename)}`)
+    .then(res => res.json())
+    .then(data => {
+        console.log(data);
+        document.querySelector("#text").innerText = data.text;
+        document.getElementById("text").innerText = data.text;
+        document.getElementById("summary").innerText = data.summary;
+        document.getElementById("abstract").innerText = data.abstract;
+
+        document.getElementById("entities").innerText =
+            JSON.stringify(data.entities, null, 2);
+    })
+    .catch(err => console.error("Error:", err));
+}
+
+
+async function semanticSearch() {
+    const query = document.getElementById("searchInput").value;
+
+    if (!query) {
+        alert("Enter search query");
+        return;
+    }
+
+    const response = await fetch(`http://127.0.0.1:5001/semantic_search?q=${query}`);
+    const data = await response.json();
+
+    const container = document.getElementById("searchResults");
+    container.innerHTML = "<h4>⚡ Semantic Results</h4>";
+
+    data.results.forEach(doc => {
+        container.innerHTML += `
+            <div class="result-item">
+                <b>Summary:</b> ${doc.summary} <br>
+                <button onclick="viewDoc('${doc.filename}')">
+                    🔍 View Details
+                </button>
+            </div>
+        `;
+    });
+}
+</script>
+
+</body>
+</html>
